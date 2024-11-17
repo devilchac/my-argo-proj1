@@ -1,68 +1,38 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "webapp.fullname" . }}
-  labels:
-    {{- include "webapp.labels" . | nindent 4 }}
+  name: {{ include "basechart.resourcename" . }}-deployment
+  annotations:
+    app.kubernetes.io/releaseName: {{ default .Release.Name .Values.releaseName }}
+    app.kubernetes.io/releaseRevision: {{ quote .Release.Revision }}
+    app.kubernetes.io/releaseService: {{ .Release.Service }}
+    app.kubernetes.io/releaseIsInstall: {{ quote .Release.IsInstall }}
+    app.kubernetes.io/releaseIsUpgrade: {{ quote .Release.IsUpgrade }}
+    app.kubernetes.io/deployedNamespace: {{ .Release.Namespace | lower }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
+{{- if and .Values.myapp.retail.enableFeature ( eq .Values.myapp.env "prod" ) }}
+  replicas: 5
+{{- else if eq .Values.myapp.env "stag" }}
+  replicas: 3
+{{- else }}
+  replicas: 1
+{{- end }}
   selector:
     matchLabels:
-      {{- include "webapp.selectorLabels" . | nindent 6 }}
+      {{- include "basechart.commonlabels" . | indent 2 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
+      labels:
+        {{- include "basechart.commonlabels" . | indent 4 }}
+    {{- with .Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
-      {{- end }}
-      labels:
-        {{- include "webapp.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+    {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      serviceAccountName: {{ include "webapp.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+        - name: nginx-container
+          image: ghcr.io/stacksimplify/kubenginx:4.0.0
           ports:
-            - name: http
-              containerPort: {{ .Values.service.port }}
-              protocol: TCP
-          livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
-          readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            - containerPort: 80
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
-          volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-      {{- with .Values.volumes }}
-      volumes:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+          {{- toYaml .Values.resources | nindent 12 }}
