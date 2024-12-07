@@ -14,7 +14,7 @@ service:
   nodePort: 30080
 
 myapp:
-  env: prod
+  env: stag
   retail:
     enableFeature: true
 
